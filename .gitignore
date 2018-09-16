@@ -1,0 +1,4 @@
+figwheel_server.log
+.cpcache/
+resources/public/
+target/
