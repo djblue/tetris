@@ -1,5 +1,6 @@
 (ns tetris.core
   (:require [tetris.github  :refer [view-source]]
+            [clojure.string :as s]
             [reagent.core :as r]))
 
 (def tetrominos
@@ -237,27 +238,35 @@
 (def key-map
   [{:doc "Move Right"
     :codes #{"ArrowRight" "KeyL"}
+    :keys ["L" "→"]
     :dispatch {:type :player-shift :direction :right}}
    {:doc "Move Left"
     :codes #{"ArrowLeft" "KeyH"}
+    :keys ["H" "←"]
     :dispatch {:type :player-shift :direction :left}}
    {:doc "Rotate Right"
     :codes #{"ArrowDown" "KeyJ"}
+    :keys ["J" "↓"]
     :dispatch {:type :player-shift-down :source :user}}
    {:doc "Soft Drop"
     :codes #{"ArrowUp" "KeyK"}
+    :keys ["K" "↑"]
     :dispatch {:type :player-rotate :direction :right}}
    {:doc "Rotate Left"
     :codes #{"KeyZ"}
+    :keys ["Z"]
     :dispatch {:type :player-rotate :direction :left}}
    {:doc "HOLD"
     :codes #{"KeyC"}
+    :keys ["C"]
     :dispatch {:type :player-hold}}
    {:doc "HARD DROP"
     :codes #{"Space"}
+    :keys ["SPACE"]
     :dispatch {:type :player-drop}}
    {:doc "Pause"
     :codes #{"Escape"}
+    :keys ["Esc"]
     :dispatch {:type :player-toggle-pause}}])
 
 (defn key-map->dispatch-table [key-map]
@@ -281,6 +290,21 @@
          :border-radius 1
          :mix-blend-mode :darken
          :background "rgba(0,0,0,0.15)"}]])
+
+(defn help [props]
+  (let [{:keys [key-map]} props]
+    [:table
+     {:style
+      {:font-size "1.1rem"
+       :margin "0 auto"
+       :text-align :left}}
+     (into [:tbody]
+           (map #(let [{:keys [doc keys]} %]
+                   [:tr
+                    [:th (s/join ", " keys)]
+                    [:td [css {:width 20}]]
+                    [:td doc]])
+                key-map))]))
 
 (defn board [props]
   (let [{:keys [scale width height positions projection border?]} props
@@ -325,7 +349,8 @@
                :text-transform :uppercase} label]] children))
 
 (defn button [props & children]
-  [:div
+  [css
+   {:line-height "1.1rem"}
    (into [:button
           (merge {:style
                   {:outline :none
@@ -451,8 +476,12 @@
      (if (:pause? world)
        [overlay
         [:div "PAUSED"]
+        [css {:height 20}]
         [button {:on-click #(on-update {:type :player-toggle-pause})} "RESUME"]
-        [button {:on-click #(on-update {:type :player-restart})} "RESTART"]])
+        [css {:height 20}]
+        [button {:on-click #(on-update {:type :player-restart})} "RESTART"]
+        [css {:height 20}]
+        [help {:key-map key-map}]])
      (if (game-over? world)
        [overlay
         [:div "GAME OVER"]
@@ -490,7 +519,10 @@
 (defn start-screen [on-update]
   [overlay
    [:div "WELCOME"]
-   [button {:on-click #(on-update {:type :player-restart})} "START"]])
+   [css {:height 20}]
+   [button {:on-click #(on-update {:type :player-restart})} "START"]
+   [css {:height 20}]
+   [help {:key-map key-map}]])
 
 (defonce world (r/atom nil))
 
