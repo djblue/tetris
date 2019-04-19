@@ -1,10 +1,8 @@
-(ns tetris
+(ns tetris.build
   (:require [clojure.string :as str]
-            [clojure.tools.cli :refer [parse-opts]]
             [figwheel-sidecar.repl-api :as figwheel]
             [cljs.build.api :as cljs]
-            [hiccup.core :refer [html]]
-            [clojure.tools.nrepl :as repl]))
+            [hiccup.core :refer [html]]))
 
 (defn app [& body]
   [:html
@@ -26,8 +24,8 @@
 
 (def figwheel-config
   {:figwheel-options
-   {:ring-handler 'tetris/http
-    :nrepl-port 7890
+   {:ring-handler 'tetris.build/http
+    :nrepl-port 7888
     :nrepl-middleware ['cemerick.piggieback/wrap-cljs-repl]}
    :build-ids ["dev"]
    :all-builds
@@ -51,32 +49,10 @@
    "<!DOCTYPE html>"
    (html (app [:script (slurp "target/public/tetris.js")]))))
 
-(defn exit [code & msg]
-  (apply println msg)
-  (System/exit code))
-
-(def cli-options
-  [["-a" "--app" "only output index.html"]
-   ["-h" "--help" "output usage information"]])
-
-(defn help [options]
-  (->> ["Build app."
-        ""
-        "Usage: build [options]"
-        ""
-        "Options:"
-        ""
-        options
-        ""]
-       (str/join \newline)))
-
-(defn main [& args]
-  (let [{:keys [options arguments errors summary]}
-        (parse-opts args cli-options)]
-    (cond
-      (:help options)     (exit 0 (help summary))
-      errors              (exit 1 (str (first errors) "\nSee \"dots --help\""))
-      (:app options)      (println (index-html))
-      :else               (figwheel/start-figwheel! figwheel-config))))
-
-(apply main *command-line-args*)
+(defn -main [& args]
+  (case (first args)
+    "server"
+    (do (figwheel/start-figwheel! figwheel-config)
+        (println "Piggieback (figwheel-sidecar.repl-api/repl-env)")
+        (figwheel/cljs-repl))
+    (println (index-html))))
