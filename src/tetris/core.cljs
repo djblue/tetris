@@ -1,5 +1,6 @@
 (ns tetris.core
-  (:require [reagent.core :as r]))
+  (:require [tetris.github  :refer [view-source]]
+            [reagent.core :as r]))
 
 (def tetrominos
   {:I {:color "#1197dd"
@@ -486,6 +487,10 @@
 
 (defn ^:export render []
   (r/render
-   [app]
+   [:div
+    [view-source
+     {:color "#202020"
+      :background (:color (rand-nth (vals tetrominos)))}]
+    [app]]
    (. js/document (getElementById "app"))))
 
