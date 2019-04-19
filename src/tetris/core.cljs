@@ -147,7 +147,7 @@
 (defn start []
   (let [types (keys tetrominos)]
     {:width 10
-     :height 22
+     :height 24
      :pause? false
      :lines 0
      :level 0
