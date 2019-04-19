@@ -341,7 +341,7 @@
   (let [[width height] (get-in tetrominos [t :dim])
         [x y] (get-in tetrominos [t :zero])
         positions (get-positions {:type t :x x :y y :r 0})]
-    [board {:scale 2.75
+    [board {:scale 2.25
             :width width
             :height height
             :positions positions}]))
