@@ -234,17 +234,40 @@
       check-pause
       check-game-over))
 
-(defn keydown->action [e]
-  (case (.-code e)
-    ("ArrowRight" "KeyL") {:type :player-shift :direction :right}
-    ("ArrowLeft" "KeyH")  {:type :player-shift :direction :left}
-    ("ArrowDown" "KeyJ")  {:type :player-shift-down :source :user}
-    ("ArrowUp" "KeyK")    {:type :player-rotate :direction :right}
-    "KeyZ"    {:type :player-rotate :direction :left}
-    "KeyC"    {:type :player-hold}
-    "Space"   {:type :player-drop}
-    "Escape"  {:type :player-toggle-pause}
-    nil))
+(def key-map
+  [{:doc "Move Right"
+    :codes #{"ArrowRight" "KeyL"}
+    :dispatch {:type :player-shift :direction :right}}
+   {:doc "Move Left"
+    :codes #{"ArrowLeft" "KeyH"}
+    :dispatch {:type :player-shift :direction :left}}
+   {:doc "Rotate Right"
+    :codes #{"ArrowDown" "KeyJ"}
+    :dispatch {:type :player-shift-down :source :user}}
+   {:doc "Soft Drop"
+    :codes #{"ArrowUp" "KeyK"}
+    :dispatch {:type :player-rotate :direction :right}}
+   {:doc "Rotate Left"
+    :codes #{"KeyZ"}
+    :dispatch {:type :player-rotate :direction :left}}
+   {:doc "HOLD"
+    :codes #{"KeyC"}
+    :dispatch {:type :player-hold}}
+   {:doc "HARD DROP"
+    :codes #{"Space"}
+    :dispatch {:type :player-drop}}
+   {:doc "Pause"
+    :codes #{"Escape"}
+    :dispatch {:type :player-toggle-pause}}])
+
+(defn key-map->dispatch-table [key-map]
+  (reduce
+   (fn [table {:keys [codes dispatch]}]
+     (into table (map #(-> [% dispatch]) codes)))
+   {}
+   key-map))
+
+(def keydown->action (key-map->dispatch-table key-map))
 
 (defn css [style & children]
   (into [:div {:style style}] children))
@@ -421,7 +444,7 @@
     [:div
      [with-listener
       :keydown
-      #(if-let [action (keydown->action %)] (on-update action))]
+      #(if-let [action (keydown->action (.-code %))] (on-update action))]
      [with-timer
       (nth frames (:level world))
       #(on-update {:type :player-shift-down})]
