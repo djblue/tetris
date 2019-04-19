@@ -436,8 +436,7 @@
      [css
       {:justify-content :center
        :display :flex
-       :filter (if (:pause? world) "blur(50px)")
-       :height "90vh"}
+       :filter (if (:pause? world) "blur(50px)")}
       [css
        {:display :flex
         :justify-content :space-between
