@@ -244,11 +244,11 @@
     :codes #{"ArrowLeft" "KeyH"}
     :keys ["H" "←"]
     :dispatch {:type :player-shift :direction :left}}
-   {:doc "Rotate Right"
+   {:doc "Soft Drop"
     :codes #{"ArrowDown" "KeyJ"}
     :keys ["J" "↓"]
     :dispatch {:type :player-shift-down :source :user}}
-   {:doc "Soft Drop"
+   {:doc "Rotate Right"
     :codes #{"ArrowUp" "KeyK"}
     :keys ["K" "↑"]
     :dispatch {:type :player-rotate :direction :right}}
