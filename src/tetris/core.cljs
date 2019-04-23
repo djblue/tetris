@@ -144,18 +144,31 @@
 (defn game-over? [world]
   (collision? world (get-positions (:player world))))
 
+(defn next-piece
+  ([world]
+   (let [[type & next-type] (:next-type world)]
+     (next-piece world type next-type)))
+  ([world type]
+   (next-piece world type (:next-type world)))
+  ([world type next-type]
+   (merge world
+          {:next-type next-type
+           :player {:x 5 :y 1
+                    :type type
+                    :r (first (shuffle (range 4)))}})))
+
 (defn start []
   (let [types (keys tetrominos)]
-    {:width 10
-     :height 24
-     :pause? false
-     :lines 0
-     :level 0
-     :positions {}
-     :hold nil
-     :can-hold? true
-     :next-type (repeatedly #(rand-nth types))
-     :player {:type (rand-nth types) :x 5 :y 2 :r 0}}))
+    (next-piece
+     {:width 10
+      :height 24
+      :pause? false
+      :lines 0
+      :level 0
+      :positions {}
+      :hold nil
+      :can-hold? true
+      :next-type (apply concat (repeatedly #(-> tetrominos keys shuffle)))})))
 
 (defn check-game-over [f]
   (fn [world action]
@@ -175,9 +188,8 @@
     (-> (if-not (bottom-out? world positions)
           (assoc world :player new-player)
           (-> world
+              (next-piece)
               (update :positions merge (get-positions player))
-              (assoc :player {:type (first next-type) :x 5 :y 1 :r 0})
-              (assoc :next-type (rest next-type))
               (assoc :can-hold? true)))
         (soft-drop-score action)
         update-score)))
@@ -212,12 +224,12 @@
 
 (defn player-hold [world _]
   (if (:can-hold? world)
-    (->> (if-let [hold (:hold world)]
-           {:player {:type hold :x 5 :y 1 :r 0}}
-           {:next-type (rest (:next-type world))
-            :player {:type (first (:next-type world)) :x 5 :y 1 :r 0}})
-         (merge world {:can-hold? false
-                       :hold (get-in world [:player :type])}))
+    (merge
+     (if-let [hold (:hold world)]
+       (next-piece world hold)
+       (next-piece world))
+     {:can-hold? false
+      :hold (get-in world [:player :type])})
     world))
 
 (defn action->fn [action]
