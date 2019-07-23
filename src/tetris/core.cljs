@@ -1,4 +1,4 @@
-(ns tetris.core
+(ns ^:figwheel-hooks tetris.core
   (:require [tetris.github  :refer [view-source]]
             [clojure.string :as s]
             [reagent.core :as r]))
@@ -552,7 +552,7 @@
        [game {:world world :on-update on-update}]
        [start-screen on-update])]))
 
-(defn ^:export render []
+(defn ^:after-load render []
   (r/render
    [:div
     [view-source
@@ -560,4 +560,6 @@
       :background (:color (rand-nth (vals tetrominos)))}]
     [app]]
    (. js/document (getElementById "app"))))
+
+(defn ^:export main [] (render))
 

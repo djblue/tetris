@@ -1,4 +1,3 @@
-figwheel_server.log
 .cpcache/
-resources/public/
+.rebel_readline_history
 target/
