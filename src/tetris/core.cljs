@@ -1,7 +1,19 @@
 (ns ^:figwheel-hooks tetris.core
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [tetris.github  :refer [view-source]]
+            [clojure.browser.repl :as repl]
             [clojure.string :as s]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [haslett.client :as ws]))
+
+(defonce conn
+  (repl/connect "http://localhost:9000/repl"))
+
+
+#_(go (let [stream (<! (ws/connect "ws://localhost:8080/ws"))]
+      (>! (:sink stream) "Hello World")
+      (js/console.log (<! (:source stream)))
+      (ws/close stream)))
 
 (def tetrominos
   {:I {:color "#1197dd"

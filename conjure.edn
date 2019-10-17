@@ -1,0 +1,3 @@
+{:conns
+ {:server {:port 5555}
+  :client {:port 5556 :lang :cljs}}}
