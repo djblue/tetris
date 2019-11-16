@@ -1,19 +1,15 @@
 (ns ^:figwheel-hooks tetris.core
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [tetris.github  :refer [view-source]]
             [clojure.browser.repl :as repl]
             [clojure.string :as s]
             [reagent.core :as r]
-            [haslett.client :as ws]))
+            [haslett.client :as ws]
+            [haslett.format :as fmt]
+            [differ.core :refer [diff patch]]))
 
 (defonce conn
   (repl/connect "http://localhost:9000/repl"))
-
-
-#_(go (let [stream (<! (ws/connect "ws://localhost:8080/ws"))]
-      (>! (:sink stream) "Hello World")
-      (js/console.log (<! (:source stream)))
-      (ws/close stream)))
 
 (def tetrominos
   {:I {:color "#1197dd"
@@ -136,13 +132,6 @@
       (- width max-value)
       :else 0)))
 
-(defn check-pause [f]
-  (fn [world action]
-    (cond
-      (= (:type action) :player-toggle-pause) (update world :pause? not)
-      (:pause? world) world
-      :else (f world action))))
-
 (defn player-shift [world action]
   (let [{:keys [player]} world
         shift (case (:direction action) :right inc :left dec)
@@ -181,13 +170,6 @@
       :hold nil
       :can-hold? true
       :next-type (apply concat (repeatedly #(-> tetrominos keys shuffle)))})))
-
-(defn check-game-over [f]
-  (fn [world action]
-    (cond
-      (= (:type action) :player-restart) (start)
-      (game-over? world) world
-      :else (f world action))))
 
 (defn soft-drop-score [world action]
   (if (= (:source action) :user)
@@ -244,6 +226,10 @@
       :hold (get-in world [:player :type])})
     world))
 
+(defn player-update-patch [world action]
+  ;(println action)
+  (update world :other-player #(patch % (:diff action))))
+
 (defn action->fn [action]
   (case (:type action)
     :player-shift player-shift
@@ -251,13 +237,27 @@
     :player-rotate player-rotate
     :player-drop player-drop
     :player-hold player-hold
+    :player-update-patch player-update-patch
     nil))
 
-(def update-player
-  (-> (fn [world action]
-        (if-let [f (action->fn action)] (f world action) world))
-      check-pause
-      check-game-over))
+(defn update-player [world action]
+  (cond
+    (= (:type action) :player-update-patch)
+    (player-update-patch world action)
+
+    (= (:type action) :player-restart)
+    (merge world (start))
+
+    (game-over? world) world
+
+    (= (:type action) :player-toggle-pause)
+    (update world :pause? not)
+
+    (:pause? world) world
+
+    :else (if-let [f (action->fn action)]
+            (f world action)
+            world)))
 
 (def key-map
   [{:doc "Move Right"
@@ -494,7 +494,7 @@
      [with-listener
       :keydown
       #(if-let [action (keydown->action (.-code %))] (on-update action))]
-     [with-timer
+     #_[with-timer
       (nth frames (:level world))
       #(on-update {:type :player-shift-down})]
      (if (:pause? world)
@@ -538,20 +538,67 @@
        {:display :flex
         :justify-content :space-between
         :flex-direction :column}
-       [next-info world]]]]))
+       [next-info world]]
+      [gutter]
+      [:div
+       {:on-click #(on-update {:type :player-drop})
+        :on-context-menu #(do
+                            (.preventDefault %)
+                            (on-update {:type :player-hold}))}
+       (when-let [world (:other-player world)]
+         [board
+          {:width (:width world)
+           :height (:height world)
+           :border? true
+           :scale (/ 50 (:height world))
+           :projection (projection world)
+           :positions (merge (:positions world)
+                             (get-positions (:player world)))}])]]]))
 
 (defn start-screen [on-update]
   [overlay
    [:div "WELCOME"]
    [css {:height 20}]
-   [button {:on-click #(on-update {:type :player-restart})} "START"]
+   [button {:on-click #(on-update {:type :player-restart})} "SINGLE PLAYER"]
    [css {:height 20}]
-   [help {:key-map key-map}]])
+   [button {:on-click #(on-update {:type :player-restart})} "MULTI PLAYER"]])
 
 (defonce world (r/atom nil))
 
+(defonce stream (atom nil))
+
+(-> @stream)
+
+(defn do-update [world action & {:keys [send?]}]
+  (let [prev @world]
+    (swap! world update-player action)
+    (when send?
+      (let [ks [:positions :width :height :player]
+            d (diff (select-keys prev ks)
+                    (select-keys @world ks))
+            action {:type :player-update-patch :diff d}]
+        (when-not (and (empty? (first d))
+                       (empty? (second d)))
+          (go (>! (:sink @stream) action)))))))
+
+(defn ws-loop [stream]
+  (go-loop []
+    (do-update world (<! (:source @stream)))
+    (recur)))
+
+(defn connect! [stream]
+  (go
+    (when (nil? @stream)
+      (let [s (<! (ws/connect
+                   "ws://localhost:8080/ws"
+                   {:format fmt/transit}))]
+        (reset! stream s)
+        (ws-loop stream)))))
+
+(connect! stream)
+
 (defn app []
-  (let [on-update #(swap! world update-player %)]
+  (let [on-update #(do-update world % :send? true)]
     [css
      {:position :relative
       :user-select :none
@@ -560,9 +607,10 @@
       :flex-direction :column
       :justify-content :center
       :height "100vh"}
-     (if-let [world @world]
-       [game {:world world :on-update on-update}]
-       [start-screen on-update])]))
+     (let [world @world]
+       (if (:player world)
+         [game {:world world :on-update on-update}]
+         [start-screen on-update]))]))
 
 (defn ^:after-load render []
   (r/render

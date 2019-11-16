@@ -5,7 +5,9 @@
             [cljs.repl :as repl]
             [hiccup.core :refer [html]]
             [org.httpkit.server :as kit]
-            [clojure.core.server :as server]))
+            [cognitect.transit :as t]
+            [clojure.core.server :as server])
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
 (defn app [& body]
   (str
@@ -27,13 +29,30 @@
   {:headers {"Content-Type" "text/html"}
    :body (app [:script {:src "cljs-out/dev-main.js" :type "text/javascript"}])})
 
+(defonce channels (atom #{}))
+
+;(defonce json-reader (t/reader :json nil))
+
+(defn transit->edn [s]
+  (let [in (ByteArrayInputStream. (.getBytes s))
+        reader (transit/reader in :json)]
+    (t/read reader)))
+
 (defn ws [req]
   (case (:uri req)
     "/ws"
     (kit/with-channel req channel
-      (kit/on-close channel (fn [status] (println "channel closed: " status)))
-      (kit/on-receive channel (fn [data] ;; echo it back
-                                (kit/send! channel data))))
+      (swap! channels conj channel)
+      (kit/on-close channel
+                    (fn [status]
+                      (swap! channels disj channel)))
+      (kit/on-receive channel
+                      (fn [data]
+                        (let [edn (transit->edn data)]
+                          (println edn))
+                        ;(println (t/read json-reader data))
+                        (doseq [c (disj @channels channel)]
+                          (kit/send! c data)))))
     {:status 200
      :headers {"Content-Type" "text/html"}
      :body "hello!"}))

@@ -6,7 +6,9 @@
   haslett {:mvn/version "0.1.6"}
   http-kit {:mvn/version "2.3.0"}
   hiccup {:mvn/version "1.0.5"}
-  reagent {:mvn/version "0.8.0"}}
+  reagent {:mvn/version "0.8.0"}
+  com.cognitect/transit-clj {:mvn/version "0.8.319"}
+  differ {:mvn/version "0.3.3"}}
  :aliases
  {:app {:main-opts ["-m" "tetris.build"]}
   :server {:main-opts ["-m" "tetris.build" "server"]}}}
