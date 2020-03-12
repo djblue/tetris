@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks tetris.core
   (:require [tetris.github  :refer [view-source]]
+            [tetris.gamepad :as gp]
             [clojure.string :as s]
             [reagent.core :as r]))
 
@@ -475,6 +476,8 @@
    #(* 1000 (/ % 60.0988))
    [48 43 38 33 28 23 18 13 8 6 5 5 5 4 4 4 3 3 3 2 2 2 2 2 2 2 2 2 2 1]))
 
+(def controller-state (atom {}))
+
 (defn game [props]
   (let [{:keys [world on-update]} props
         {:keys [width height player positions]} world]
@@ -482,6 +485,13 @@
      [with-listener
       :keydown
       #(if-let [action (keydown->action (.-code %))] (on-update action))]
+     [with-timer
+      16
+      #(when-let [gamepad (gp/get-gamepad)]
+         (let [[state actions]
+               (gp/controller->action @controller-state gamepad)]
+           (dorun (map on-update actions))
+           (reset! controller-state state)))]
      [with-timer
       (nth frames (:level world))
       #(on-update {:type :player-shift-down})]
