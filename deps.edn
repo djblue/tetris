@@ -2,12 +2,12 @@
  :deps
  {org.clojure/clojurescript {:mvn/version "1.10.520"}
   com.bhauman/figwheel-main {:mvn/version "0.2.3"}
-  hiccup {:mvn/version "1.0.5"}
-  reagent {:mvn/version "0.8.0"}}
+  hiccup/hiccup {:mvn/version "1.0.5"}
+  reagent/reagent {:mvn/version "0.8.0"}}
  :aliases
  {:app {:main-opts  ["-m" "tetris.build"]}
   :server {:main-opts  ["-m" "tetris.build" "server"]
            :extra-deps
-           {cljfmt {:mvn/version "0.5.7"}
+           {cljfmt/cljfmt {:mvn/version "0.5.7"}
             com.bhauman/rebel-readline-cljs {:mvn/version "0.1.4"}
             com.cemerick/piggieback {:mvn/version "0.2.2"}}}}}
