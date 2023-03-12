@@ -1,0 +1,31 @@
+name: Github Pages
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  ghpages:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    env:
+      CLOJURE_VERSION: 1.11.1.1252
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-java@v3
+      with:
+        distribution: adopt
+        java-version: 11
+    - run: |
+        curl -O https://download.clojure.org/install/linux-install-${CLOJURE_VERSION}.sh
+        chmod +x linux-install-${CLOJURE_VERSION}.sh
+        sudo ./linux-install-${CLOJURE_VERSION}.sh
+    - run: mkdir app
+    - run: clojure -M:app > app/index.html
+    - uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./app/
+        force_orphan: true
