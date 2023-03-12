@@ -8,9 +8,9 @@ An almost complete tetris.
 
 To start a figwheel development server, do:
 
-    clojure -Aserver
+    clojure -M:server
 
 To build a static index.html, do
 
-    clojure -Aapp > index.html
+    clojure -M:app > index.html
 
