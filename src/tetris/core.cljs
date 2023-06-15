@@ -195,22 +195,24 @@
         (soft-drop-score action)
         update-score)))
 
-(defn player-rotate [world action]
-  (let [{:keys [player]} world
-        rotate (case (:direction action) :right inc :left dec)
-        new-player (update player :r #(-> % rotate (mod 4)))
-        positions (get-positions new-player)
+(defn force-in-bounds [world player]
+  (let [positions (get-positions player)
         bounds (out-of-bounds world :x positions)]
     (if (and (not (collision? world positions))
              (= 0 bounds)
              (= 0 (out-of-bounds world :y positions)))
-      (assoc world :player new-player)
-      (let [new-player (update new-player :x #(+ % bounds))
+      (assoc world :player player)
+      (let [new-player (update player :x #(+ % bounds))
             positions (get-positions new-player)]
         (if (and (not (collision? world positions))
                  (= 0 (out-of-bounds world :y positions)))
           (assoc world :player new-player)
           world)))))
+
+(defn player-rotate [world action]
+  (let [{:keys [player]} world
+        rotate (case (:direction action) :right inc :left dec)]
+    (force-in-bounds world (update player :r #(-> % rotate (mod 4))))))
 
 (defn player-drop
   ([world action] (player-drop world action 0))
@@ -233,6 +235,11 @@
       :hold (get-in world [:player :type])})
     world))
 
+(defn player-reset [world action]
+  (force-in-bounds
+   world
+   (merge (:player world) (select-keys action [:x]))))
+
 (defn action->fn [action]
   (case (:type action)
     :player-shift player-shift
@@ -240,6 +247,7 @@
     :player-rotate player-rotate
     :player-drop player-drop
     :player-hold player-hold
+    :player-reset player-reset
     nil))
 
 (def update-player
@@ -320,7 +328,7 @@
                 key-map))]))
 
 (defn board [props]
-  (let [{:keys [scale width height positions projection border?]} props
+  (let [{:keys [scale width height positions projection border? on-update]} props
         size (str scale "vh")]
     [:table
      {:cell-spacing "0"
@@ -335,8 +343,12 @@
                  :style
                  {:width size
                   :height size
-                  :border (if (or border? (get positions [j i])) "1px solid #202020")
-                  :background (if border? (if (even? (+ i j)) "#2e2e2e" "#2b2b2b"))}}
+                  :border (when (or border? (get positions [j i])) "1px solid #202020")
+                  :background (when border? (if (even? (+ i j)) "#2e2e2e" "#2b2b2b"))}
+                 :on-mouse-enter
+                 (fn []
+                   (when (fn? on-update)
+                     (on-update {:type :player-reset :x j})))}
             (if-let [color (get positions [j i])]
               [block {:background color}]
               (when-let [color (get projection [j i])]
@@ -530,7 +542,8 @@
          :border? true
          :scale (/ 90 height)
          :projection (projection world)
-         :positions (merge positions (get-positions player))}]]
+         :positions (merge positions (get-positions player))
+         :on-update on-update}]]
       [gutter]
       [css
        {:display :flex
