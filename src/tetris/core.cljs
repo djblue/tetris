@@ -339,7 +339,7 @@
                   :background (if border? (if (even? (+ i j)) "#2e2e2e" "#2b2b2b"))}}
             (if-let [color (get positions [j i])]
               [block {:background color}]
-              (if-let [color (get projection [j i])]
+              (when-let [color (get projection [j i])]
                 [block {:background color :opacity 0.25}]))])])]]))
 
 (defn panel [& children]
@@ -417,7 +417,7 @@
       [info
        "Hold"
        [css {:height 10}]
-       (if-not (nil? hold) (preview hold))]]]))
+       (when-not (nil? hold) (preview hold))]]]))
 
 (defn score-info [world]
   (let [{:keys [score level lines]} world]
@@ -484,7 +484,7 @@
     [:div
      [with-listener
       :keydown
-      #(if-let [action (keydown->action (.-code %))] (on-update action))]
+      #(when-let [action (keydown->action (.-code %))] (on-update action))]
      [with-timer
       16
       #(when-let [gamepad (gp/get-gamepad)]
@@ -511,7 +511,7 @@
      [css
       {:justify-content :center
        :display :flex
-       :filter (if (:pause? world) "blur(50px)")}
+       :filter (when (:pause? world) "blur(50px)")}
       [css
        {:display :flex
         :justify-content :space-between
