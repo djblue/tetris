@@ -2,21 +2,32 @@
   (:include "raylib.h"
             "raygui.h"))
 
+(def themes
+  {:default
+   {:background 0x202020FF}})
+
 (def initial-state
   {:settings
-   {:resolution
+   {:theme :default
+    :resolution
     {:screen-width 1280
      :screen-height 800}}})
 
-(defonce state (atom initial-state))
+(defn- draw-frame! [state]
+  (let [{:keys [background]}
+        (get themes (get-in state [:settings :theme]))]
+    (cpp/BeginDrawing)
+    (cpp/ClearBackground (cpp/GetColor background))
+    (cpp/EndDrawing)))
+
+(defonce state-atom (atom initial-state))
 
 (defn -main [& args]
-  (let [{{{:keys [screen-width screen-height]} :resolution} :settings}  @state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings :as state}  @state-atom]
     (cpp/InitWindow screen-width screen-height "tetris")
     (cpp/SetTargetFPS 60)
     (while (cpp/! (cpp/WindowShouldClose))
-      (cpp/BeginDrawing)
-      (cpp/EndDrawing))
+      (draw-frame! state))
     (cpp/CloseWindow)))
 
 (comment
