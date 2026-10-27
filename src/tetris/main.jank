@@ -4,31 +4,85 @@
 
 (def themes
   {:default
-   {:background 0x202020FF}})
+   {:background 0x202020ff
+    :border 0x2e2e2eff
+    :menu 0x000000bf
+    :text 0xffffffff
+    :padding 10}})
 
 (def initial-state
-  {:settings
+  {:screen :welcome
+   :settings
    {:theme :default
     :resolution
     {:screen-width 1280
      :screen-height 800}}})
 
-(defn- draw-frame! [state]
-  (let [{:keys [background]}
-        (get themes (get-in state [:settings :theme]))]
-    (cpp/BeginDrawing)
-    (cpp/ClearBackground (cpp/GetColor background))
-    (cpp/EndDrawing)))
-
 (defonce state-atom (atom initial-state))
 
+(defn- get-theme [state]
+  (get themes (get-in state [:settings :theme])))
+
+(defn- draw-welcome! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [menu text padding border]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (cpp/DrawRectangle 0
+                       (int menu-start)
+                       (int screen-width)
+                       (int menu-height)
+                       (cpp/GetColor menu))
+    (cpp/DrawRectangle 0
+                       (int (dec menu-start))
+                       (int screen-width)
+                       3
+                       (cpp/GetColor border))
+    (cpp/DrawRectangle 0
+                       (int (dec (+ menu-start menu-height)))
+                       (int screen-width)
+                       3
+                       (cpp/GetColor border))
+    (cpp/DrawText "WELCOME"
+                  (int (- (* 0.5 screen-width)
+                          (* 0.5 (cpp/MeasureText "WELCOME" 60))))
+                  (int (+ menu-start (* 3 padding)))
+                  60
+                  (cpp/GetColor text))
+    (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
+    (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
+          button-width 280]
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE 32)
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "Start"))
+        (tap> :start))
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
+  nil)
+
+
+(defn- draw-frame! [state]
+  (let [{:keys [background]} (get-theme state)]
+    (cpp/BeginDrawing)
+    (cpp/ClearBackground (cpp/GetColor background))
+    (case (:screen state)
+      :welcome (draw-welcome! state))
+    (cpp/EndDrawing)))
+
 (defn -main [& args]
-  (let [{{{:keys [screen-width screen-height]} :resolution} :settings :as state}  @state-atom]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings :as state} @state-atom]
     (cpp/InitWindow screen-width screen-height "tetris")
     (cpp/SetTargetFPS 60)
     (while (cpp/! (cpp/WindowShouldClose))
-      (draw-frame! state))
+      (try
+        (draw-frame! state)
+        (catch :default _)))
     (cpp/CloseWindow)))
 
 (comment
-  (def fut (future (-main))))
+  (def fut (future (-main)))
+  (require '[portal.api :as p])
+  (p/open {:launcher :auto})
+  (add-tap #'p/submit))
