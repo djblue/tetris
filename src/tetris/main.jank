@@ -1,0 +1,17 @@
+(ns tetris.main
+  (:include "raylib.h"
+            "raygui.h"))
+
+(def screen-width 800)
+(def screen-height 450)
+
+(defn -main [& args]
+  (cpp/InitWindow screen-width screen-height "tetris")
+  (cpp/SetTargetFPS 60)
+  (while (cpp/! (cpp/WindowShouldClose))
+    (cpp/BeginDrawing)
+    (cpp/EndDrawing))
+  (cpp/CloseWindow))
+
+(comment
+  (def fut (future (-main))))
