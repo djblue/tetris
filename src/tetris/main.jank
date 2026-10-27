@@ -2,16 +2,22 @@
   (:include "raylib.h"
             "raygui.h"))
 
-(def screen-width 800)
-(def screen-height 450)
+(def initial-state
+  {:settings
+   {:resolution
+    {:screen-width 1280
+     :screen-height 800}}})
+
+(defonce state (atom initial-state))
 
 (defn -main [& args]
-  (cpp/InitWindow screen-width screen-height "tetris")
-  (cpp/SetTargetFPS 60)
-  (while (cpp/! (cpp/WindowShouldClose))
-    (cpp/BeginDrawing)
-    (cpp/EndDrawing))
-  (cpp/CloseWindow))
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings}  @state]
+    (cpp/InitWindow screen-width screen-height "tetris")
+    (cpp/SetTargetFPS 60)
+    (while (cpp/! (cpp/WindowShouldClose))
+      (cpp/BeginDrawing)
+      (cpp/EndDrawing))
+    (cpp/CloseWindow)))
 
 (comment
   (def fut (future (-main))))
