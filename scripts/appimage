@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd target
+
+if [ ! -f 'linuxdeploy-x86_64.AppImage' ]; then
+  curl -LO 'https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage'
+  chmod +x 'linuxdeploy-x86_64.AppImage'
+fi
+
+./linuxdeploy-x86_64.AppImage \
+  --executable=release/tetris \
+  --library=/usr/lib/libstdc++.so.6 \
+  --library=/usr/lib/libgcc_s.so.1 \
+  --desktop-file=../resources/appimage/tetris.desktop \
+  --icon-file=../resources/appimage/tetris.png \
+  --appdir=AppDir \
+  --output appimage
