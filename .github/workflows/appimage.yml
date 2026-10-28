@@ -19,7 +19,7 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '21'
-    - uses: DeLaGuardo/setup-clojure@13.7
+    - uses: DeLaGuardo/setup-clojure@13.7.0
       with:
         lein: latest
         bb: latest
