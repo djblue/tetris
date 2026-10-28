@@ -141,6 +141,11 @@
 (defn game-over? [world]
   (collision? world (get-positions (:player world))))
 
+(defn- add-more-pieces [world]
+  (cond-> world
+    (< (count (:next-type world)) 6)
+    (update :next-type concat (shuffle (keys tetrominos)))))
+
 (defn next-piece
   ([world]
    (let [[type & next-type] (:next-type world)]
@@ -148,26 +153,26 @@
   ([world type]
    (next-piece world type (:next-type world)))
   ([world type next-type]
-   (merge world
-          {:next-type next-type
-           :player {:x 5 :y 1
-                    :type type
-                    :r (first (shuffle (range 4)))}})))
+   (add-more-pieces
+    (merge world
+           {:next-type next-type
+            :player {:x 5 :y 1
+                     :type type
+                     :r (first (shuffle (range 4)))}}))))
 
 (defn start []
-  (let [types (keys tetrominos)]
-    (next-piece
-     {:width 10
-      :height 24
-      :timer 0
-      :score 0
-      :pause? false
-      :lines 0
-      :level 0
-      :positions {}
-      :hold nil
-      :can-hold? true
-      :next-type (take 100 (apply concat (repeatedly #(-> tetrominos keys shuffle))))})))
+  (next-piece
+   {:width 10
+    :height 24
+    :timer 0
+    :score 0
+    :pause? false
+    :lines 0
+    :level 0
+    :positions {}
+    :hold nil
+    :can-hold? true
+    :next-type (shuffle (keys tetrominos))}))
 
 (defn check-game-over [f]
   (fn [world action]
