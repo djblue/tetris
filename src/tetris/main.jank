@@ -93,7 +93,7 @@
 (defn- get-theme [state]
   (get themes (get-in state [:settings :theme])))
 
-(defn- draw-welcome! [state]
+(defn- draw-menu! [state label]
   (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
         {:keys [menu text padding border]} (get-theme state)
         menu-height 460
@@ -113,12 +113,44 @@
                        (int screen-width)
                        3
                        (cpp/GetColor border))
-    (cpp/DrawText "WELCOME"
+    (cpp/DrawText label
                   (int (- (* 0.5 screen-width)
-                          (* 0.5 (cpp/MeasureText "WELCOME" 60))))
+                          (* 0.5 (cpp/MeasureText label 60))))
                   (int (+ menu-start (* 3 padding)))
                   60
-                  (cpp/GetColor text))
+                  (cpp/GetColor text))))
+
+(defn- draw-pause-menu! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (draw-menu! state "PAUSED")
+    (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
+    (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
+          button-width 280]
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE 32)
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "RESUME"))
+        (dispatch! {:type :player-toggle-pause}))
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 2.1 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "RESTART"))
+        (dispatch! {:type :player-restart}))
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
+  nil)
+
+(defn- draw-welcome! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (draw-menu! state "WELCOME")
     (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
     (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
           button-width 280]
@@ -176,7 +208,9 @@
         (recur (inc i))))))
 
 (defn- draw-game! [state]
-  (draw-board! state))
+  (draw-board! state)
+  (when (:pause? (:world state))
+    (draw-pause-menu! state)))
 
 (defn- draw-frame! [state]
   (let [{:keys [background]} (get-theme state)]
