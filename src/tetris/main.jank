@@ -1,7 +1,6 @@
 (ns tetris.main
   (:require [tetris.core :as core])
-  (:include "raylib.h"
-            "raygui.h"))
+  (:include "raylib.h" "raygui.h" "rlgl.h"))
 
 (def themes
   {:default
@@ -21,6 +20,12 @@
     {:screen-width 1280
      :screen-height 800}}})
 
+(defmacro with-origin [x y & body]
+  `(try
+     (cpp/rlPushMatrix)
+     (cpp/rlTranslatef ~x ~y 0)
+     ~@body
+     (finally (cpp/rlPopMatrix))))
 
 (defonce state-atom (atom initial-state))
 
@@ -183,11 +188,9 @@
   nil)
 
 (defn draw-board! [state]
-  (let [{{:keys [height width player positions] :as world} :world
-         {{:keys [screen-width screen-height]} :resolution} :settings} state
+  (let [{{:keys [height width player positions] :as world} :world} state
         board-width 360
-        top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
-        piece-width (- (int (/ 360 width)) 3)
+        piece-width (- (int (/ board-width width)) 3)
         player-positions (core/get-positions player)
         player-projection (core/projection world)
         {:keys [background board-1 board-2]} (get-theme state)]
@@ -195,7 +198,7 @@
       (when (< i width)
         (loop [j 0]
           (when (< j height)
-            (let [x (int (+ top-left (* i piece-width)))
+            (let [x (int (* i piece-width))
                   y (int (+ 0 (* j piece-width)))
                   position [i j]
                   color (or (get player-positions position)
@@ -225,14 +228,78 @@
             (recur (inc j))))
         (recur (inc i))))))
 
-(defn- draw-game! [state]
-  (draw-board! state)
-  (cond
-    (core/game-over? (:world state))
-    (draw-game-over! state)
+(defn draw-hold! [state width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        height (int (+ text-size (* 0.5 width) (* padding 2)))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText "HOLD"
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText "HOLD" text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    height))
 
-    (:pause? (:world state))
-    (draw-pause-menu! state)))
+(defn draw-info-box! [state label value width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        height (+ (* text-size 2) (* padding 3))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText label
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText label text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    (cpp/DrawText value
+                  (int
+                   (- (* 0.5 width)
+                      (* 0.5 (cpp/MeasureText value text-size))))
+                  (+ text-size padding padding)
+                  text-size
+                  (cpp/GetColor text))
+    height))
+
+(defn draw-info! [state width]
+  (let [{{:keys [score level lines]} :world} state]
+    (cpp/rlPushMatrix)
+    (cpp/rlTranslatef 0 0 0)
+    (draw-info-box! state "SCORE" (str score) width)
+    (cpp/rlTranslatef 0 76 0)
+    (draw-info-box! state "LEVEL" (str level) width)
+    (cpp/rlTranslatef 0 76 0)
+    (draw-info-box! state "LINES" (str lines) width)
+    (cpp/rlPopMatrix)))
+
+(defn- draw-game! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        board-width 360
+        board-top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
+        border-width 144
+        info-left (int (- board-top-left border-width padding))
+        info-top (int (- screen-height (* 3 76) 2))]
+    (with-origin info-left (int padding)
+      (draw-hold! state 144))
+    (with-origin info-left info-top
+      (draw-info! state 144))
+    (with-origin board-top-left 0
+      (draw-board! state))
+    (cond
+      (core/game-over? (:world state))
+      (draw-game-over! state)
+
+      (:pause? (:world state))
+      (draw-pause-menu! state))))
 
 (defn- draw-frame! [state]
   (let [{:keys [background]} (get-theme state)]
