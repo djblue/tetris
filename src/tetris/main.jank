@@ -1,4 +1,5 @@
 (ns tetris.main
+  (:require [tetris.core :as core])
   (:include "raylib.h"
             "raygui.h"))
 
