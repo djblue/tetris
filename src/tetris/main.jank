@@ -49,31 +49,52 @@
            (with-meta [before after]
              {:portal.viewer/default :portal.viewer/diff})})))
 
+(defn gamepad-pressed? [button]
+  (boolean
+   (loop [n 0]
+     (when (cpp/IsGamepadAvailable n)
+       (or (cpp/IsGamepadButtonPressed n (int button))
+           (recur (inc n)))))))
+
 (defn handle-input [state]
   (cond-> state
     (or (cpp/IsKeyPressed cpp/KEY_LEFT)
-        (cpp/IsKeyPressedRepeat cpp/KEY_LEFT))
+        (cpp/IsKeyPressedRepeat cpp/KEY_LEFT)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_LEFT))
     (update :world core/update-player {:type :player-shift :direction :left})
 
     (or (cpp/IsKeyPressed cpp/KEY_RIGHT)
-        (cpp/IsKeyPressedRepeat cpp/KEY_RIGHT))
+        (cpp/IsKeyPressedRepeat cpp/KEY_RIGHT)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
     (update :world core/update-player {:type :player-shift :direction :right})
 
     (or (cpp/IsKeyPressed cpp/KEY_UP)
-        (cpp/IsKeyPressedRepeat cpp/KEY_UP))
+        (cpp/IsKeyPressedRepeat cpp/KEY_UP)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_UP)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_TRIGGER_1))
     (update :world core/update-player {:type :player-rotate :direction :right})
 
+    (or (cpp/IsKeyPressed cpp/KEY_Z)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_TRIGGER_1))
+    (update :world core/update-player {:type :player-rotate :direction :left})
+
     (or (cpp/IsKeyPressed cpp/KEY_DOWN)
-        (cpp/IsKeyPressedRepeat cpp/KEY_DOWN))
+        (cpp/IsKeyPressedRepeat cpp/KEY_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
     (update :world core/update-player {:type :player-shift-down :source :user})
 
-    (cpp/IsKeyPressed cpp/KEY_C)
+    (or (cpp/IsKeyPressed cpp/KEY_C)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_TRIGGER_2))
     (update :world core/update-player {:type :player-hold})
 
-    (cpp/IsKeyPressed cpp/KEY_SPACE)
+    (or (cpp/IsKeyPressed cpp/KEY_SPACE)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_FACE_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_TRIGGER_2))
     (update :world core/update-player {:type :player-drop})
 
-    (cpp/IsKeyPressed cpp/KEY_ESCAPE)
+    (or (cpp/IsKeyPressed cpp/KEY_ESCAPE)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_MIDDLE_RIGHT))
     (update :world core/update-player {:type :player-toggle-pause})))
 
 (defn update-time [{:keys [world] :as state}]
