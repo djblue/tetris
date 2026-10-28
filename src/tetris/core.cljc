@@ -11,7 +11,7 @@
        2 [[-1  1] [0  1] [1  1] [2  1]]
        3 [[0  1] [0  0] [0 -1] [0  2]]}
    :O {:color #?(:cljs "#fabc26"
-                 :cljs 0xfabc26ff
+                 :jank 0xfabc26ff
                  :default "#fabc26")
        :dim [2 2]
        :zero [0 0]
@@ -64,8 +64,6 @@
        1 [[0  0] [1 -1] [0  1] [1  0]]
        2 [[0  0] [1  1] [0  1] [-1  0]]
        3 [[0  0] [-1  1] [0 -1] [-1  0]]}})
-
-(defn rotate [r] (-> r inc (mod 4)))
 
 (defn get-positions [player]
   (let [{:keys [type x y r]} player
