@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Tetris
+Exec=tetris
+Icon=tetris
+Categories=Game;
+Terminal=false

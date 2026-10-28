@@ -1,6 +1,8 @@
-.cpcache/
-.rebel_readline_history
-target/
+.calva/
 .clj-kondo/.cache
+.cpcache/
 .lsp/
 .nrepl-port
+.portal/
+.rebel_readline_history
+target/

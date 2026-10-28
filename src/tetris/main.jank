@@ -1,0 +1,421 @@
+(ns tetris.main
+  (:require [tetris.core :as core])
+  (:include "raylib.h" "raygui.h" "rlgl.h"))
+
+(def themes
+  {:default
+   {:background 0x202020ff
+    :border 0x2e2e2eff
+    :menu 0x000000bf
+    :text 0xffffffff
+    :padding 10
+    :board-1 0x2e2e2eff
+    :board-2 0x2b2b2bff}})
+
+(def initial-state
+  {:screen :welcome
+   :settings
+   {:theme :default
+    :resolution
+    {:screen-width 1280
+     :screen-height 800}}})
+
+(defmacro with-origin [x y & body]
+  `(try
+     (cpp/rlPushMatrix)
+     (cpp/rlTranslatef ~x ~y 0)
+     ~@body
+     (finally (cpp/rlPopMatrix))))
+
+(defmacro with-scale [scale & body]
+  `(try
+     (cpp/rlPushMatrix)
+     (cpp/rlScalef ~scale ~scale 1)
+     ~@body
+     (finally (cpp/rlPopMatrix))))
+
+(defonce state-atom (atom initial-state))
+
+(comment
+  (reset! state-atom initial-state)
+  (tap> @state-atom)
+  comment)
+
+(defn dispatch! [event]
+  (let [before @state-atom
+        after (swap! state-atom update :world core/update-player event)]
+    (tap> {:event event
+           :state
+           (with-meta [before after]
+             {:portal.viewer/default :portal.viewer/diff})})))
+
+(defn gamepad-pressed? [button]
+  (boolean
+   (loop [n 0]
+     (when (cpp/IsGamepadAvailable n)
+       (or (cpp/IsGamepadButtonPressed n (int button))
+           (recur (inc n)))))))
+
+(defn handle-input [state]
+  (cond-> state
+    (or (cpp/IsKeyPressed cpp/KEY_LEFT)
+        (cpp/IsKeyPressedRepeat cpp/KEY_LEFT)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_LEFT))
+    (update :world core/update-player {:type :player-shift :direction :left})
+
+    (or (cpp/IsKeyPressed cpp/KEY_RIGHT)
+        (cpp/IsKeyPressedRepeat cpp/KEY_RIGHT)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
+    (update :world core/update-player {:type :player-shift :direction :right})
+
+    (or (cpp/IsKeyPressed cpp/KEY_UP)
+        (cpp/IsKeyPressedRepeat cpp/KEY_UP)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_UP)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_TRIGGER_1))
+    (update :world core/update-player {:type :player-rotate :direction :right})
+
+    (or (cpp/IsKeyPressed cpp/KEY_Z)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_TRIGGER_1))
+    (update :world core/update-player {:type :player-rotate :direction :left})
+
+    (or (cpp/IsKeyPressed cpp/KEY_DOWN)
+        (cpp/IsKeyPressedRepeat cpp/KEY_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_FACE_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
+    (update :world core/update-player {:type :player-shift-down :source :user})
+
+    (or (cpp/IsKeyPressed cpp/KEY_C)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_LEFT_TRIGGER_2))
+    (update :world core/update-player {:type :player-hold})
+
+    (or (cpp/IsKeyPressed cpp/KEY_SPACE)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_FACE_DOWN)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_RIGHT_TRIGGER_2))
+    (update :world core/update-player {:type :player-drop})
+
+    (or (cpp/IsKeyPressed cpp/KEY_ESCAPE)
+        (gamepad-pressed? cpp/GAMEPAD_BUTTON_MIDDLE_RIGHT))
+    (update :world core/update-player {:type :player-toggle-pause})))
+
+(defn update-time [{:keys [world] :as state}]
+  (let [dt (cpp/GetFrameTime)]
+    (cond-> state
+      (not (:pause? world true))
+      (update-in [:world :timer] + dt))))
+
+(def frames
+  (mapv
+   #(* 1 (/ % 60.0988))
+   [48 43 38 33 28 23 18 13 8 6 5 5 5 4 4 4 3 3 3 2 2 2 2 2 2 2 2 2 2 1]))
+
+(defn update-player [{:keys [world] :as state}]
+  (if (:pause? world)
+    state
+    (cond-> state
+      (> (:timer world) (:drop-timer world 0))
+      (-> (update :world core/update-player {:type :player-shift-down})
+          (assoc-in [:world :drop-timer]
+                    (+ (:timer world) (nth frames 0 (:level world))))))))
+
+(defn update-world [state]
+  (try
+    (-> state update-time handle-input update-player)
+    (catch :default _
+      state)))
+
+(defn- get-theme [state]
+  (get themes (get-in state [:settings :theme])))
+
+(defn- draw-menu! [state label]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [menu text padding border]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (cpp/DrawRectangle 0
+                       (int menu-start)
+                       (int screen-width)
+                       (int menu-height)
+                       (cpp/GetColor menu))
+    (cpp/DrawRectangle 0
+                       (int (dec menu-start))
+                       (int screen-width)
+                       3
+                       (cpp/GetColor border))
+    (cpp/DrawRectangle 0
+                       (int (dec (+ menu-start menu-height)))
+                       (int screen-width)
+                       3
+                       (cpp/GetColor border))
+    (cpp/DrawText label
+                  (int (- (* 0.5 screen-width)
+                          (* 0.5 (cpp/MeasureText label 60))))
+                  (int (+ menu-start (* 3 padding)))
+                  60
+                  (cpp/GetColor text))))
+
+(defn- draw-pause-menu! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (draw-menu! state "PAUSED")
+    (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
+    (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
+          button-width 280]
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE 32)
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "RESUME"))
+        (dispatch! {:type :player-toggle-pause}))
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 2.1 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "RESTART"))
+        (dispatch! {:type :player-restart}))
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
+  nil)
+
+(defn- draw-game-over! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (draw-menu! state "GAME OVER")
+    (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
+    (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
+          button-width 280]
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE 32)
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "RESTART"))
+        (dispatch! {:type :player-restart}))
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old))))
+
+(defn- draw-welcome! [state]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        menu-height 460
+        menu-start (* 0.5 (- screen-height menu-height))]
+    (draw-menu! state "WELCOME")
+    (cpp/GuiSetStyle cpp/BUTTON cpp/TEXT_ALIGNMENT cpp/TEXT_ALIGN_CENTER)
+    (let [old (cpp/GuiGetStyle cpp/DEFAULT cpp/TEXT_SIZE)
+          button-width 280]
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE 32)
+      (when (== 1 (cpp/GuiButton (cpp/Rectangle (int (- (* 0.5 screen-width) (* 0.5 button-width)))
+                                                (int (+ (* 6 padding) 60 menu-start))
+                                                button-width
+                                                54)
+                                 "Start"))
+        (dispatch! {:type :player-restart}))
+      (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
+  nil)
+
+(defn draw-board! [state board-width]
+  (let [{{:keys [height width player positions] :as world} :world} state
+        piece-width (int (/ board-width width))
+        player-positions (core/get-positions player)
+        player-projection (core/projection world)
+        {:keys [background board-1 board-2]} (get-theme state)]
+    (loop [i 0]
+      (when (< i width)
+        (loop [j 0]
+          (when (< j height)
+            (let [x (int (* i piece-width))
+                  y (int (+ 0 (* j piece-width)))
+                  position [i j]
+                  color (or (get player-positions position)
+                            (get positions position)
+                            (some-> (get player-projection position)
+                                    (bit-and 0xffffff00)
+                                    (bit-or 0x66)))
+                  default-color (when-not color
+                                  (if (even? (+ i j)) board-1 board-2))]
+              (cpp/DrawRectangle x
+                                 y
+                                 piece-width
+                                 piece-width
+                                 (cpp/GetColor (or color default-color)))
+              (cpp/DrawRectangleLines x
+                                      y
+                                      piece-width
+                                      piece-width
+                                      (cpp/GetColor background))
+              (when color
+                (let [padding (int (* 0.3 piece-width))]
+                  (cpp/DrawRectangle (+ x padding)
+                                     (+ y padding)
+                                     (- piece-width (* 2 padding))
+                                     (- piece-width (* 2 padding))
+                                     (cpp/GetColor 0x00000026)))))
+            (recur (inc j))))
+        (recur (inc i))))))
+
+(defn draw-preview! [state t board-width]
+  (let [[width height] (get-in core/tetrominos [t :dim])
+        [x y] (get-in core/tetrominos [t :zero])
+        piece-width (int (/ board-width width))
+        positions (core/get-positions {:type t :x x :y y :r 0})
+        {:keys [background]} (get-theme state)
+        scale (case width 2 0.33 3 0.5 4 0.66)]
+    (with-origin (* 0.5 (- board-width (* scale board-width))) 0
+      (with-scale scale
+        (loop [i 0]
+          (when (< i width)
+            (loop [j 0]
+              (when (< j height)
+                (let [x (int (* i piece-width))
+                      y (int (+ 0 (* j piece-width)))
+                      position [i j]
+                      color  (get positions position)]
+                  (when color
+                    (cpp/DrawRectangle x
+                                       y
+                                       piece-width
+                                       piece-width
+                                       (cpp/GetColor color))
+                    (cpp/DrawRectangleLines x
+                                            y
+                                            piece-width
+                                            piece-width
+                                            (cpp/GetColor background))
+                    (let [padding (int (* 0.3 piece-width))]
+                      (cpp/DrawRectangle (+ x padding)
+                                         (+ y padding)
+                                         (- piece-width (* 2 padding))
+                                         (- piece-width (* 2 padding))
+                                         (cpp/GetColor 0x00000026)))))
+                (recur (inc j))))
+            (recur (inc i))))))))
+
+(defn draw-hold! [state width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        height (int (+ text-size (* 0.5 width) (* padding 2)))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText "HOLD"
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText "HOLD" text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    (when-let [hold (-> state :world :hold)]
+      (with-origin 0 (int (+ (* 2 padding) text-size))
+        (draw-preview! state hold width)))
+    height))
+
+(defn draw-next! [state width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        preview-height 56
+        height (+ text-size (* 5 preview-height) (* 7 padding))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText "NEXT"
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText "NEXT" text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    (with-origin 0 (int (+ text-size (* 2 padding)))
+      (doseq [piece (take 5 (:next-type (:world state)))]
+        (draw-preview! state piece width)
+        (cpp/rlTranslatef 0 (int (+ padding preview-height)) 0)))))
+
+(defn draw-info-box! [state label value width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        height (+ (* text-size 2) (* padding 3))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText label
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText label text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    (cpp/DrawText value
+                  (int
+                   (- (* 0.5 width)
+                      (* 0.5 (cpp/MeasureText value text-size))))
+                  (+ text-size padding padding)
+                  text-size
+                  (cpp/GetColor text))
+    height))
+
+(defn draw-info! [state width]
+  (let [{{:keys [score level lines]} :world} state]
+    (cpp/rlPushMatrix)
+    (cpp/rlTranslatef 0 0 0)
+    (draw-info-box! state "SCORE" (str score) width)
+    (cpp/rlTranslatef 0 76 0)
+    (draw-info-box! state "LEVEL" (str level) width)
+    (cpp/rlTranslatef 0 76 0)
+    (draw-info-box! state "LINES" (str lines) width)
+    (cpp/rlPopMatrix)))
+
+(defn- draw-game! [state]
+  (let [{{:keys [width height]} :world
+         {{:keys [screen-width screen-height]} :resolution} :settings} state
+        {:keys [padding]} (get-theme state)
+        board-width (* width (/ screen-height height))
+        board-top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
+        border-width 144
+        info-left (int (- board-top-left border-width padding))
+        info-top (int (- screen-height (* 3 76) 2))]
+    (with-origin info-left (int padding)
+      (draw-hold! state 144))
+    (with-origin info-left info-top
+      (draw-info! state 144))
+    (with-origin board-top-left 0
+      (draw-board! state board-width))
+    (with-origin (int (+ board-top-left board-width padding)) (int padding)
+      (draw-next! state 144))
+    (cond
+      (core/game-over? (:world state))
+      (draw-game-over! state)
+
+      (:pause? (:world state))
+      (draw-pause-menu! state))))
+
+(defn- draw-frame! [state]
+  (let [{:keys [background]} (get-theme state)]
+    (cpp/ClearBackground (cpp/GetColor background))
+    (cond
+      (:world state) (draw-game! state)
+      :else (draw-welcome! state))))
+
+(defn -main [& args]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} @state-atom]
+    (cpp/InitWindow screen-width screen-height "tetris")
+    (cpp/SetTargetFPS 60)
+    (cpp/SetExitKey cpp/KEY_NULL)
+    (while (cpp/! (cpp/WindowShouldClose))
+      (let [next-state (swap! state-atom update-world)]
+        (cpp/BeginDrawing)
+        (try
+          (draw-frame! next-state)
+          (catch :default _)))
+      (cpp/EndDrawing))
+    (cpp/CloseWindow)))
+
+(comment
+  (def fut (future (-main)))
+  (require '[portal.api :as p])
+  (p/open {:launcher :auto})
+  (add-tap #'p/submit)
+  (tap> ::hi))

@@ -1,0 +1,46 @@
+name: AppImage
+
+on:
+  push:
+    branches: [ master, main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+    - uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+    - uses: DeLaGuardo/setup-clojure@13.7.0
+      with:
+        lein: latest
+        bb: latest
+    - uses: jank-lang/setup-jank@main
+    - run: lein appimage
+    - uses: actions/upload-artifact@v4
+      with:
+        if-no-files-found: error
+        name: appimage
+        path: target/Tetris-*.AppImage
+  release:
+    needs: appimage
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: appimage
+    - uses: softprops/action-gh-release@v3
+      with:
+        files: '*.AppImage'
+        generate_release_notes: true
