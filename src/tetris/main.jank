@@ -27,6 +27,13 @@
      ~@body
      (finally (cpp/rlPopMatrix))))
 
+(defmacro with-scale [scale & body]
+  `(try
+     (cpp/rlPushMatrix)
+     (cpp/rlScalef ~scale ~scale 1)
+     ~@body
+     (finally (cpp/rlPopMatrix))))
+
 (defonce state-atom (atom initial-state))
 
 (comment
@@ -228,6 +235,43 @@
             (recur (inc j))))
         (recur (inc i))))))
 
+(defn draw-preview! [state t board-width]
+  (let [[width height] (get-in core/tetrominos [t :dim])
+        [x y] (get-in core/tetrominos [t :zero])
+        piece-width (int (/ board-width width))
+        positions (core/get-positions {:type t :x x :y y :r 0})
+        {:keys [background]} (get-theme state)
+        scale (case width 2 0.33 3 0.5 4 0.66)]
+    (with-origin (* 0.5 (- board-width (* scale board-width))) 0
+      (with-scale scale
+        (loop [i 0]
+          (when (< i width)
+            (loop [j 0]
+              (when (< j height)
+                (let [x (int (* i piece-width))
+                      y (int (+ 0 (* j piece-width)))
+                      position [i j]
+                      color  (get positions position)]
+                  (when color
+                    (cpp/DrawRectangle x
+                                       y
+                                       piece-width
+                                       piece-width
+                                       (cpp/GetColor color))
+                    (cpp/DrawRectangleLines x
+                                            y
+                                            piece-width
+                                            piece-width
+                                            (cpp/GetColor background))
+                    (let [padding (int (* 0.3 piece-width))]
+                      (cpp/DrawRectangle (+ x padding)
+                                         (+ y padding)
+                                         (- piece-width (* 2 padding))
+                                         (- piece-width (* 2 padding))
+                                         (cpp/GetColor 0x00000026)))))
+                (recur (inc j))))
+            (recur (inc i))))))))
+
 (defn draw-hold! [state width]
   (let [{:keys [text padding board-2]} (get-theme state)
         text-size 20
@@ -243,7 +287,31 @@
                   padding
                   text-size
                   (cpp/GetColor text))
+    (when-let [hold (-> state :world :hold)]
+      (with-origin 0 (int (+ (* 2 padding) text-size))
+        (draw-preview! state hold width)))
     height))
+
+(defn draw-next! [state width]
+  (let [{:keys [text padding board-2]} (get-theme state)
+        text-size 20
+        preview-height 56
+        height (+ text-size (* 5 preview-height) (* 7 padding))]
+    (cpp/DrawRectangle 0
+                       0
+                       width
+                       height
+                       (cpp/GetColor board-2))
+    (cpp/DrawText "NEXT"
+                  (int (- (* 0.5 width)
+                          (* 0.5 (cpp/MeasureText "NEXT" text-size))))
+                  padding
+                  text-size
+                  (cpp/GetColor text))
+    (with-origin 0 (int (+ text-size (* 2 padding)))
+      (doseq [piece (take 5 (:next-type (:world state)))]
+        (draw-preview! state piece width)
+        (cpp/rlTranslatef 0 (int (+ padding preview-height)) 0)))))
 
 (defn draw-info-box! [state label value width]
   (let [{:keys [text padding board-2]} (get-theme state)
@@ -294,6 +362,8 @@
       (draw-info! state 144))
     (with-origin board-top-left 0
       (draw-board! state))
+    (with-origin (int (+ board-top-left board-width)) (int padding)
+      (draw-next! state 144))
     (cond
       (core/game-over? (:world state))
       (draw-game-over! state)
