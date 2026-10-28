@@ -37,6 +37,33 @@
            (with-meta [before after]
              {:portal.viewer/default :portal.viewer/diff})})))
 
+(defn handle-input [state]
+  (cond-> state
+    (or (cpp/IsKeyPressed cpp/KEY_LEFT)
+        (cpp/IsKeyPressedRepeat cpp/KEY_LEFT))
+    (update :world core/update-player {:type :player-shift :direction :left})
+
+    (or (cpp/IsKeyPressed cpp/KEY_RIGHT)
+        (cpp/IsKeyPressedRepeat cpp/KEY_RIGHT))
+    (update :world core/update-player {:type :player-shift :direction :right})
+
+    (or (cpp/IsKeyPressed cpp/KEY_UP)
+        (cpp/IsKeyPressedRepeat cpp/KEY_UP))
+    (update :world core/update-player {:type :player-rotate :direction :right})
+
+    (or (cpp/IsKeyPressed cpp/KEY_DOWN)
+        (cpp/IsKeyPressedRepeat cpp/KEY_DOWN))
+    (update :world core/update-player {:type :player-shift-down :source :user})
+
+    (cpp/IsKeyPressed cpp/KEY_C)
+    (update :world core/update-player {:type :player-hold})
+
+    (cpp/IsKeyPressed cpp/KEY_SPACE)
+    (update :world core/update-player {:type :player-drop})
+
+    (cpp/IsKeyPressed cpp/KEY_ESCAPE)
+    (update :world core/update-player {:type :player-toggle-pause})))
+
 (defn update-time [{:keys [world] :as state}]
   (let [dt (cpp/GetFrameTime)]
     (cond-> state
@@ -59,7 +86,7 @@
 
 (defn update-world [state]
   (try
-    (-> state update-time update-player)
+    (-> state update-time handle-input update-player)
     (catch :default _
       state)))
 
@@ -106,12 +133,13 @@
   nil)
 
 (defn draw-board! [state]
-  (let [{{:keys [height width player positions]} :world
+  (let [{{:keys [height width player positions] :as world} :world
          {{:keys [screen-width screen-height]} :resolution} :settings} state
         board-width 360
         top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
         piece-width (- (int (/ 360 width)) 3)
         player-positions (core/get-positions player)
+        player-projection (core/projection world)
         {:keys [background board-1 board-2]} (get-theme state)]
     (loop [i 0]
       (when (< i width)
@@ -121,8 +149,12 @@
                   y (int (+ 0 (* j piece-width)))
                   position [i j]
                   color (or (get player-positions position)
-                            (get positions position))
-                  default-color (if (even? (+ i j)) board-1 board-2)]
+                            (get positions position)
+                            (some-> (get player-projection position)
+                                    (bit-and 0xffffff00)
+                                    (bit-or 0x66)))
+                  default-color (when-not color
+                                  (if (even? (+ i j)) board-1 board-2))]
               (cpp/DrawRectangle x
                                  y
                                  piece-width
@@ -157,6 +189,7 @@
   (let [{{{:keys [screen-width screen-height]} :resolution} :settings} @state-atom]
     (cpp/InitWindow screen-width screen-height "tetris")
     (cpp/SetTargetFPS 60)
+    (cpp/SetExitKey cpp/KEY_NULL)
     (while (cpp/! (cpp/WindowShouldClose))
       (let [next-state (swap! state-atom update-world)]
         (cpp/BeginDrawing)
