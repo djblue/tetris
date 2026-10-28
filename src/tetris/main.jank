@@ -9,7 +9,9 @@
     :border 0x2e2e2eff
     :menu 0x000000bf
     :text 0xffffffff
-    :padding 10}})
+    :padding 10
+    :board-1 0x2e2e2eff
+    :board-2 0x2b2b2bff}})
 
 (def initial-state
   {:screen :welcome
@@ -19,7 +21,21 @@
     {:screen-width 1280
      :screen-height 800}}})
 
+
 (defonce state-atom (atom initial-state))
+
+(comment (reset! state-atom initial-state))
+
+(defn dispatch! [event]
+  (let [before @state-atom
+        after (swap! state-atom update :world core/update-player event)]
+    (tap> {:event event
+           :state
+           (with-meta [before after]
+             {:portal.viewer/default :portal.viewer/diff})})))
+
+(defn update-world! [state]
+  )
 
 (defn- get-theme [state]
   (get themes (get-in state [:settings :theme])))
@@ -59,31 +75,73 @@
                                                 button-width
                                                 54)
                                  "Start"))
-        (tap> :start))
+        (dispatch! {:type :player-restart}))
       (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
   nil)
 
+(defn draw-board! [state]
+  (let [{{:keys [height width player positions]} :world
+         {{:keys [screen-width screen-height]} :resolution} :settings} state
+        board-width 360
+        top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
+        piece-width (- (int (/ 360 width)) 3)
+        player-positions (core/get-positions player)
+        {:keys [background board-1 board-2]} (get-theme state)]
+    (loop [i 0]
+      (when (< i width)
+        (loop [j 0]
+          (when (< j height)
+            (let [x (int (+ top-left (* i piece-width)))
+                  y (int (+ 0 (* j piece-width)))
+                  position [i j]
+                  color (or (get player-positions position)
+                            (get positions position))
+                  default-color (if (even? (+ i j)) board-1 board-2)]
+              (cpp/DrawRectangle x
+                                 y
+                                 piece-width
+                                 piece-width
+                                 (cpp/GetColor (or color default-color)))
+              (cpp/DrawRectangleLines x
+                                      y
+                                      piece-width
+                                      piece-width
+                                      (cpp/GetColor background))
+              (when color
+                (let [padding (int (* 0.3 piece-width))]
+                  (cpp/DrawRectangle (+ x padding)
+                                     (+ y padding)
+                                     (- piece-width (* 2 padding))
+                                     (- piece-width (* 2 padding))
+                                     (cpp/GetColor 0x00000026)))))
+            (recur (inc j))))
+        (recur (inc i))))))
+
+(defn- draw-game! [state]
+  (draw-board! state))
 
 (defn- draw-frame! [state]
   (let [{:keys [background]} (get-theme state)]
-    (cpp/BeginDrawing)
     (cpp/ClearBackground (cpp/GetColor background))
-    (case (:screen state)
-      :welcome (draw-welcome! state))
-    (cpp/EndDrawing)))
+    (cond
+      (:world state) (draw-game! state)
+      :else (draw-welcome! state))))
 
 (defn -main [& args]
-  (let [{{{:keys [screen-width screen-height]} :resolution} :settings :as state} @state-atom]
+  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} @state-atom]
     (cpp/InitWindow screen-width screen-height "tetris")
     (cpp/SetTargetFPS 60)
     (while (cpp/! (cpp/WindowShouldClose))
+      (cpp/BeginDrawing)
       (try
-        (draw-frame! state)
-        (catch :default _)))
+        (draw-frame! @state-atom)
+        (catch :default _))
+      (cpp/EndDrawing))
     (cpp/CloseWindow)))
 
 (comment
   (def fut (future (-main)))
   (require '[portal.api :as p])
   (p/open {:launcher :auto})
-  (add-tap #'p/submit))
+  (add-tap #'p/submit)
+  (tap> ::hi))

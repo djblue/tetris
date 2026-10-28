@@ -1,49 +1,49 @@
 (ns tetris.core)
 
 (def tetrominos
-  {:I {:color "#1197dd"
+  {:I {:color 0x1197ddff
        :dim [4 1]
        :zero [1 0]
        0 [[-1  0] [0  0] [1  0] [2  0]]
        1 [[1 -1] [1  0] [1  1] [1  2]]
        2 [[-1  1] [0  1] [1  1] [2  1]]
        3 [[0  1] [0  0] [0 -1] [0  2]]}
-   :O {:color "#fabc26"
+   :O {:color 0xfabc26ff
        :dim [2 2]
        :zero [0 0]
        0 [[0  0] [0  1] [1  0] [1  1]]
        1 [[0  0] [0  1] [1  0] [1  1]]
        2 [[0  0] [0  1] [1  0] [1  1]]
        3 [[0  0] [0  1] [1  0] [1  1]]}
-   :T {:color "#c32ba6"
+   :T {:color 0xc32ba6ff
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1  0] [0 -1]]
        1 [[0  0] [0  1] [1  0] [0 -1]]
        2 [[0  0] [-1  0] [1  0] [0  1]]
        3 [[0  0] [-1  0] [0 -1] [0  1]]}
-   :J {:color "#2063cf"
+   :J {:color 0x2063cfff
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [-1 -1] [1  0]]
        1 [[0  0] [0  1] [0 -1] [1 -1]]
        2 [[0  0] [-1  0] [1  0] [1  1]]
        3 [[0  0] [-1  1] [0  1] [0 -1]]}
-   :L {:color "#f47b14"
+   :L {:color 0xf47b14ff
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1 -1] [1  0]]
        1 [[0  0] [0  1] [0 -1] [1  1]]
        2 [[0  0] [-1  0] [1  0] [-1  1]]
        3 [[0  0] [-1 -1] [0  1] [0 -1]]}
-   :S {:color "#73c214"
+   :S {:color 0x73c214ff
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1 -1] [0 -1]]
        1 [[0  0] [1  0] [0 -1] [1  1]]
        2 [[0  0] [0  1] [1  0] [-1  1]]
        3 [[0  0] [-1 -1] [0  1] [-1  0]]}
-   :Z {:color "#d5203b"
+   :Z {:color 0xd5203bff
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1 -1] [0 -1] [1  0]]
@@ -165,7 +165,7 @@
       :positions {}
       :hold nil
       :can-hold? true
-      :next-type (apply concat (repeatedly #(-> tetrominos keys shuffle)))})))
+      :next-type (take 100 (apply concat (repeatedly #(-> tetrominos keys shuffle))))})))
 
 (defn check-game-over [f]
   (fn [world action]
