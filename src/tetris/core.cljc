@@ -159,6 +159,8 @@
     (next-piece
      {:width 10
       :height 24
+      :timer 0
+      :score 0
       :pause? false
       :lines 0
       :level 0

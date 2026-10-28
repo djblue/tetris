@@ -24,7 +24,10 @@
 
 (defonce state-atom (atom initial-state))
 
-(comment (reset! state-atom initial-state))
+(comment
+  (reset! state-atom initial-state)
+  (tap> @state-atom)
+  comment)
 
 (defn dispatch! [event]
   (let [before @state-atom
@@ -34,8 +37,31 @@
            (with-meta [before after]
              {:portal.viewer/default :portal.viewer/diff})})))
 
-(defn update-world! [state]
-  )
+(defn update-time [{:keys [world] :as state}]
+  (let [dt (cpp/GetFrameTime)]
+    (cond-> state
+      (not (:pause? world true))
+      (update-in [:world :timer] + dt))))
+
+(def frames
+  (mapv
+   #(* 1 (/ % 60.0988))
+   [48 43 38 33 28 23 18 13 8 6 5 5 5 4 4 4 3 3 3 2 2 2 2 2 2 2 2 2 2 1]))
+
+(defn update-player [{:keys [world] :as state}]
+  (if (:pause? world)
+    state
+    (cond-> state
+      (> (:timer world) (:drop-timer world 0))
+      (-> (update :world core/update-player {:type :player-shift-down})
+          (assoc-in [:world :drop-timer]
+                    (+ (:timer world) (nth frames 0 (:level world))))))))
+
+(defn update-world [state]
+  (try
+    (-> state update-time update-player)
+    (catch :default _
+      state)))
 
 (defn- get-theme [state]
   (get themes (get-in state [:settings :theme])))
@@ -132,10 +158,11 @@
     (cpp/InitWindow screen-width screen-height "tetris")
     (cpp/SetTargetFPS 60)
     (while (cpp/! (cpp/WindowShouldClose))
-      (cpp/BeginDrawing)
-      (try
-        (draw-frame! @state-atom)
-        (catch :default _))
+      (let [next-state (swap! state-atom update-world)]
+        (cpp/BeginDrawing)
+        (try
+          (draw-frame! next-state)
+          (catch :default _)))
       (cpp/EndDrawing))
     (cpp/CloseWindow)))
 
