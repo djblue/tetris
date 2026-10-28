@@ -33,6 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
     - uses: actions/setup-java@v3
       with:
         distribution: 'adopt'
