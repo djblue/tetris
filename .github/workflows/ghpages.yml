@@ -29,3 +29,16 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./app/
         force_orphan: true
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v3
+      with:
+        distribution: adopt
+        java-version: 11
+    - uses: actions/checkout@v3
+    - uses: DeLaGuardo/setup-clojure@13.4
+      with:
+        lein: latest
+    - uses: jank-lang/setup-jank@main
+    - run: lein appimage
