@@ -1,49 +1,63 @@
 (ns tetris.core)
 
 (def tetrominos
-  {:I {:color 0x1197ddff
+  {:I {:color #?(:cljs "#1197dd"
+                 :jank 0x1197ddff
+                 :default "#1197dd")
        :dim [4 1]
        :zero [1 0]
        0 [[-1  0] [0  0] [1  0] [2  0]]
        1 [[1 -1] [1  0] [1  1] [1  2]]
        2 [[-1  1] [0  1] [1  1] [2  1]]
        3 [[0  1] [0  0] [0 -1] [0  2]]}
-   :O {:color 0xfabc26ff
+   :O {:color #?(:cljs "#fabc26"
+                 :cljs 0xfabc26ff
+                 :default "#fabc26")
        :dim [2 2]
        :zero [0 0]
        0 [[0  0] [0  1] [1  0] [1  1]]
        1 [[0  0] [0  1] [1  0] [1  1]]
        2 [[0  0] [0  1] [1  0] [1  1]]
        3 [[0  0] [0  1] [1  0] [1  1]]}
-   :T {:color 0xc32ba6ff
+   :T {:color #?(:cljs "#c32ba6"
+                 :jank 0xc32ba6ff
+                 :default "#c32ba6")
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1  0] [0 -1]]
        1 [[0  0] [0  1] [1  0] [0 -1]]
        2 [[0  0] [-1  0] [1  0] [0  1]]
        3 [[0  0] [-1  0] [0 -1] [0  1]]}
-   :J {:color 0x2063cfff
+   :J {:color #?(:cljs "#2063cf"
+                 :jank 0x2063cfff
+                 :default "#2063cf")
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [-1 -1] [1  0]]
        1 [[0  0] [0  1] [0 -1] [1 -1]]
        2 [[0  0] [-1  0] [1  0] [1  1]]
        3 [[0  0] [-1  1] [0  1] [0 -1]]}
-   :L {:color 0xf47b14ff
+   :L {:color #?(:cljs "#f47b14"
+                 :jank 0xf47b14ff
+                 :default "#f47b14")
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1 -1] [1  0]]
        1 [[0  0] [0  1] [0 -1] [1  1]]
        2 [[0  0] [-1  0] [1  0] [-1  1]]
        3 [[0  0] [-1 -1] [0  1] [0 -1]]}
-   :S {:color 0x73c214ff
+   :S {:color #?(:cljs "#73c214"
+                 :jank 0x73c214ff
+                 :default "#73c214")
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1  0] [1 -1] [0 -1]]
        1 [[0  0] [1  0] [0 -1] [1  1]]
        2 [[0  0] [0  1] [1  0] [-1  1]]
        3 [[0  0] [-1 -1] [0  1] [-1  0]]}
-   :Z {:color 0xd5203bff
+   :Z {:color #?(:cljs "#d5203b"
+                 :jank 0xd5203bff
+                 :default "#d5203b")
        :dim [3 2]
        :zero [1 1]
        0 [[0  0] [-1 -1] [0 -1] [1  0]]
@@ -258,46 +272,3 @@
         (if-let [f (action->fn action)] (f world action) world))
       check-pause
       check-game-over))
-
-(def key-map
-  [{:doc "Move Right"
-    :codes #{"ArrowRight" "KeyL"}
-    :keys ["L" "→"]
-    :dispatch {:type :player-shift :direction :right}}
-   {:doc "Move Left"
-    :codes #{"ArrowLeft" "KeyH"}
-    :keys ["H" "←"]
-    :dispatch {:type :player-shift :direction :left}}
-   {:doc "Soft Drop"
-    :codes #{"ArrowDown" "KeyJ"}
-    :keys ["J" "↓"]
-    :dispatch {:type :player-shift-down :source :user}}
-   {:doc "Rotate Right"
-    :codes #{"ArrowUp" "KeyK"}
-    :keys ["K" "↑"]
-    :dispatch {:type :player-rotate :direction :right}}
-   {:doc "Rotate Left"
-    :codes #{"KeyZ"}
-    :keys ["Z"]
-    :dispatch {:type :player-rotate :direction :left}}
-   {:doc "HOLD"
-    :codes #{"KeyC"}
-    :keys ["C"]
-    :dispatch {:type :player-hold}}
-   {:doc "HARD DROP"
-    :codes #{"Space"}
-    :keys ["SPACE"]
-    :dispatch {:type :player-drop}}
-   {:doc "Pause"
-    :codes #{"Escape"}
-    :keys ["Esc"]
-    :dispatch {:type :player-toggle-pause}}])
-
-(defn key-map->dispatch-table [key-map]
-  (reduce
-   (fn [table {:keys [codes dispatch]}]
-     (into table (map #(-> [% dispatch]) codes)))
-   {}
-   key-map))
-
-(def keydown->action (key-map->dispatch-table key-map))

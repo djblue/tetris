@@ -17,7 +17,7 @@
       [:style "html, body { margin: 0; padding: 0; font-family: Roboto; }"]]
      [:body [:div {:id "app"}]
       body
-      [:script {} "tetris.core.main()"]]])))
+      [:script {} "tetris.main.main()"]]])))
 
 (defn http [req]
   {:headers {"Content-Type" "text/html"}
@@ -36,7 +36,7 @@
     "server"
     (figwheel/start
      {:id "dev"
-      :options {:main 'tetris.core}
+      :options {:main 'tetris.main}
       :config {:ring-handler 'tetris.build/http}})
     (println (index-html))))
 
