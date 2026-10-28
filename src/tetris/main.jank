@@ -194,10 +194,9 @@
       (cpp/GuiSetStyle cpp/DEFAULT cpp/TEXT_SIZE old)))
   nil)
 
-(defn draw-board! [state]
+(defn draw-board! [state board-width]
   (let [{{:keys [height width player positions] :as world} :world} state
-        board-width 360
-        piece-width (- (int (/ board-width width)) 3)
+        piece-width (int (/ board-width width))
         player-positions (core/get-positions player)
         player-projection (core/projection world)
         {:keys [background board-1 board-2]} (get-theme state)]
@@ -349,9 +348,10 @@
     (cpp/rlPopMatrix)))
 
 (defn- draw-game! [state]
-  (let [{{{:keys [screen-width screen-height]} :resolution} :settings} state
+  (let [{{:keys [width height]} :world
+         {{:keys [screen-width screen-height]} :resolution} :settings} state
         {:keys [padding]} (get-theme state)
-        board-width 360
+        board-width (* width (/ screen-height height))
         board-top-left (int (- (* 0.5 screen-width) (* 0.5 board-width)))
         border-width 144
         info-left (int (- board-top-left border-width padding))
@@ -361,8 +361,8 @@
     (with-origin info-left info-top
       (draw-info! state 144))
     (with-origin board-top-left 0
-      (draw-board! state))
-    (with-origin (int (+ board-top-left board-width)) (int padding)
+      (draw-board! state board-width))
+    (with-origin (int (+ board-top-left board-width padding)) (int padding)
       (draw-next! state 144))
     (cond
       (core/game-over? (:world state))
